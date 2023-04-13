@@ -258,7 +258,12 @@ class Trainer(object):
         targets = batch_scene[self.obs_length:self.seq_length] - batch_scene[self.obs_length-1:self.seq_length-1]
 
         rel_outputs, outputs = self.model(observed, batch_scene_goal, batch_split, prediction_truth)
-
+        print("batchScene",batch_scene.size())
+        print("obsLength", self.obs_length)
+        print("predLen", self.pred_length)
+        print("batchSplit", batch_split)
+        print("obs", observed.size())
+        print("OUTPUTS =>", outputs.size())
         # For collision loss calculation
         primary_prediction = batch_scene[-self.pred_length:].clone()
         primary_prediction[:, batch_split[:-1]] = outputs[-self.pred_length:, batch_split[:-1]]
