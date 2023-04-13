@@ -235,9 +235,11 @@ class LSTM(torch.nn.Module):
         # list of predictions
         normals = []  # predicted normal parameters for both phases
         positions = []  # true (during obs phase) and predicted positions
+        velocities = []
 
         if len(observed) == 2:
             positions = [observed[-1]]
+            velocities = [observed[1] - observed[0]]
 
         # encoder
         if self.intent_pool:
@@ -252,6 +254,12 @@ class LSTM(torch.nn.Module):
             # concat predictions
             normals.append(normal)
             positions.append(obs2 + normal[:, :2])  # no sampling, just mean
+        velocities = normals[:, :, :2]
+        ot_v_np = np.array(velocities)
+        vmax = np.max(ot_v_np)
+        vmin = np.min(ot_v_np)
+
+
 
         # initialize predictions with last position to form velocity. DEEP COPY !!!
         prediction_truth = copy.deepcopy(list(itertools.chain.from_iterable(
@@ -274,7 +282,15 @@ class LSTM(torch.nn.Module):
 
             # concat predictions
             normals.append(normal)
-            positions.append(obs2 + normal[:, :2])  # no sampling, just mean
+            # positions.append(obs2 + normal[:, :2])  # no sampling, just mean
+        vt_np = np.array(normals[:,:,:2])
+        vt_np_sig = 1/(1+np.exp(-vt_np))
+        vt_final = vmin + vt_np_sig*(vmax-vmin)
+        vel_trajectories = vt_final.tolist()
+        ind = 0
+        for obs1, obs2 in zip(prediction_truth[:-1], prediction_truth[1:]):
+            positions.append(obs2+vel_trajectories[ind,:,:2])
+            ind = ind + 1
 
         # Pred_scene: Tensor [seq_length, num_tracks, 2]
         #    Absolute positions of all pedestrians
