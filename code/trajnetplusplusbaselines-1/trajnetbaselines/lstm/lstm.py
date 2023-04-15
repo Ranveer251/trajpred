@@ -253,9 +253,10 @@ class LSTM(torch.nn.Module):
             # print(hidden_cell_state[0].size)
             # concat predictions
             normals.append(normal)
+            velocities.append(normal[:, :2])
             positions.append(obs2 + normal[:, :2])  # no sampling, just mean
-        velocities = normals[:, :, :2]
-        ot_v_np = np.array(velocities)
+        vel = torch.stack(velocities)
+        ot_v_np = vel.detach().numpy()
         vmax = np.max(ot_v_np)
         vmin = np.min(ot_v_np)
 
@@ -265,7 +266,7 @@ class LSTM(torch.nn.Module):
         prediction_truth = copy.deepcopy(list(itertools.chain.from_iterable(
             (observed[-1:], prediction_truth)
         )))
-
+        vt = []
         # decoder, predictions
         for obs1, obs2 in zip(prediction_truth[:-1], prediction_truth[1:]):
             if obs1 is None:
@@ -282,14 +283,15 @@ class LSTM(torch.nn.Module):
 
             # concat predictions
             normals.append(normal)
+            vt.append(normal[:,:2])
             # positions.append(obs2 + normal[:, :2])  # no sampling, just mean
-        vt_np = np.array(normals[:,:,:2])
-        vt_np_sig = 1/(1+np.exp(-vt_np))
-        vt_final = vmin + vt_np_sig*(vmax-vmin)
-        vel_trajectories = vt_final.tolist()
+        vt_tensor = torch.stack(vt)
+        vt_sig = torch.sigmoid(vt_tensor)
+        vt_final = vmin + vt_sig*(vmax-vmin)
+        vel_trajectories = list(torch.unbind(vt_final))
         ind = 0
         for obs1, obs2 in zip(prediction_truth[:-1], prediction_truth[1:]):
-            positions.append(obs2+vel_trajectories[ind,:,:2])
+            positions.append(obs2+vel_trajectories[ind])
             ind = ind + 1
 
         # Pred_scene: Tensor [seq_length, num_tracks, 2]
