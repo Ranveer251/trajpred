@@ -258,12 +258,12 @@ class Trainer(object):
         targets = batch_scene[self.obs_length:self.seq_length] - batch_scene[self.obs_length-1:self.seq_length-1]
 
         rel_outputs, outputs = self.model(observed, batch_scene_goal, batch_split, prediction_truth)
-        print("batchScene",batch_scene.size())
-        print("obsLength", self.obs_length)
-        print("predLen", self.pred_length)
-        print("batchSplit", batch_split)
-        print("obs", observed.size())
-        print("OUTPUTS =>", outputs.size())
+        # print("batchScene",batch_scene.size())
+        # print("obsLength", self.obs_length)
+        # print("predLen", self.pred_length)
+        # print("batchSplit", batch_split)
+        # print("obs", observed.size())
+        # print("OUTPUTS =>", outputs.size())
         # For collision loss calculation
         primary_prediction = batch_scene[-self.pred_length:].clone()
         primary_prediction[:, batch_split[:-1]] = outputs[-self.pred_length:, batch_split[:-1]]
@@ -271,26 +271,20 @@ class Trainer(object):
         ## Loss wrt primary tracks of each scene only
         loss = self.criterion(rel_outputs[-self.pred_length:], targets, batch_split, primary_prediction) * self.batch_size
 
-#         if self.curvature_loss:
-#             alpha = 0.7
-#             delta = [x2 - x1 for x1, x2 in zip(outputs[1:],outputs[:-1])]
-#             deltaSum = [x1+x2 for x1, x2 in zip(delta[1:],delta[:-1])]
-#             cl = alpha * sum(deltaSum)
-#             cl = torch.tensor([cl])
-#             loss  = torch.add(loss,cl)
         if self.curvature_loss:
             curvature_loss = 0
             alpha = 0.7
             size = outputs.size(dim=1)
             for i in range(size):
               output = outputs[:,i,:]
-              print(output)
-              delta = [x2 - x1 for x1, x2 in zip(output[1:],output[:-1])]
-              deltaSum = [x1+x2 for x1, x2 in zip(delta[1:],delta[:-1])]
+              # print("outputSize",output.size())
+              delta = [x1 - x2 for x1, x2 in zip(output[1:],output[:-1])]
+              # print("Delta",delta)
+              deltaSum = [(x1+x2).pow(2).sum().sqrt() for x1, x2 in zip(delta[1:],delta[:-1])]
               cl = alpha * sum(deltaSum)
               curvature_loss = curvature_loss + cl
-#             print("cl", curvature_loss)
-#             error => only one element tensors can be converted to Python scalars
+              # print("cl", cl)
+            # error => only one element tensors can be converted to Python scalars
             cl = torch.tensor([curvature_loss])
             loss  = torch.add(loss,cl)
 
